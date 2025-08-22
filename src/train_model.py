@@ -52,9 +52,11 @@ def build_preprocessor(df: pd.DataFrame,
     for col in categorical_features:
         df[col] = df[col].astype(str)
     numeric_features = df.select_dtypes(include=[np.number]).columns.tolist()
-    for col in ["label", "target"]:
+    for col in ["label", "target", "attack_cat"]:
         if col in numeric_features:
             numeric_features.remove(col)
+        if col in categorical_features:
+            categorical_features.remove(col)
     # Remove text columns from categorical if specified
     text_columns = text_columns or []
     for col in text_columns:
@@ -95,8 +97,13 @@ def train_and_evaluate(df: pd.DataFrame,
                        model_out_path: str = "models/rf_pipeline.joblib"):
     if classifier is None:
         classifier = RandomForestClassifier(n_estimators=200, n_jobs=-1, class_weight="balanced", random_state=random_state)
-    X = df.drop(columns=["label", "target"], errors="ignore")
+    X = df.drop(columns=["label", "target","attack_cat"], errors="ignore")
     y = df["target"].values
+    #debug prints
+    #print("Columns in X:", X.columns.tolist())
+    print("Number of duplicate rows:", df.duplicated().sum())
+    #rint(X.head())
+    #rint(y[:5])
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size,
                                                         random_state=random_state, stratify=y)
     logger.info("Train/test sizes: %d / %d", X_train.shape[0], X_test.shape[0])
@@ -128,9 +135,16 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     data_dir = "data"
     df = load_and_merge_csvs(data_dir)
+    df = df.drop_duplicates()
     df.to_csv("data/merged.csv", index=False)
     print("Merged CSV saved as data/merged.csv")
     print("Columns in merged DataFrame:", df.columns.tolist())
     df = prepare_target(df)
+
+    # Diagnostic: Check for features that perfectly separate the target
+
+
     preprocessor, feature_list = build_preprocessor(df)
     train_and_evaluate(df, preprocessor)
+
+
